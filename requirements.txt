@@ -1,0 +1,4 @@
+streamlit==0.90.1
+python-pptx==0.6.19
+openai==0.27.0
+azure-storage-blob==12.9.0
