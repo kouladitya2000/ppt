@@ -1,0 +1,32 @@
+try {
+    $token = (Get-AzAccessToken -ResourceUrl "https://graph.microsoft.com").Token
+    $headers = @{ Authorization = "Bearer $token" }
+
+    # Get Source Group ID by DisplayName
+    $groupLookupUri = "https://graph.microsoft.com/v1.0/groups?`$filter=displayName eq '$SourceGroupName'"
+    $groupResult = Invoke-RestMethod -Uri $groupLookupUri -Headers $headers -Method Get
+
+    if (!$groupResult.value) {
+        throw "Group $SourceGroupName not found in Graph"
+    }
+
+    $sourceGroupId = $groupResult.value[0].id
+
+    # Get Group Members
+    $membersUri = "https://graph.microsoft.com/v1.0/groups/$sourceGroupId/members?`$select=id,displayName,userPrincipalName"
+    $membersResult = Invoke-RestMethod -Uri $membersUri -Headers $headers -Method Get
+
+    $script:SourceGroupMembers = foreach ($m in $membersResult.value) {
+        [PSCustomObject]@{
+            UserPrincipalName = $m.userPrincipalName
+            DisplayName       = $m.displayName
+            ObjectId          = $m.id
+        }
+    }
+}
+catch {
+    $errorMessage = "Unable to fetch group members using MS Graph for group $SourceGroupName"
+    $alertStatus  = CollectAndSendAlert -pMonitoringURL $MonitoringURL -pAlertURL $AlertURL -pActivityLog_level "Error" -pActivityLog_properties_communication $_.Exception.Message
+    Write-Error -Message $_.Exception
+    return $false
+}
